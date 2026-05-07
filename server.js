@@ -38,15 +38,10 @@ app.get("/api/data", (req, res) => {
     res.json(sensorData);
 });
 
-// lấy data mới nhất
-app.get("/data/latest", (req, res) => {
-    res.json(sensorData[sensorData.length - 1] || {});
-});
-
-// PORT Railway bắt buộc dùng process.env.PORT
-const PORT = process.env.PORT || 3000;
+// IMPORTANT FOR RAILWAY
+const PORT = process.env.PORT;
 
 // chạy server
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("Server running on port " + PORT);
+    console.log("Running on " + PORT);
 });
