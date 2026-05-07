@@ -1,47 +1,64 @@
 ﻿const express = require("express");
-const bodyParser = require("body-parser");
+const mongoose = require("mongoose");
 
 const app = express();
 
-// middleware
-app.use(bodyParser.json());
+app.use(express.json());
 
-// lưu dữ liệu cảm biến
-let sensorData = [];
-
-// test server
-app.get("/", (req, res) => {
-    res.send("IoT Server Running");
+// ===== CONNECT MONGO =====
+mongoose.connect(process.env.MONGO_URL, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => {
+    console.log("MongoDB Connected");
+}).catch(err => {
+    console.log("Mongo Error:", err);
 });
 
-// ESP32 gửi dữ liệu lên đây
-app.post("/data", (req, res) => {
-    const data = {
+// ===== SCHEMA =====
+const SensorSchema = new mongoose.Schema({
+    temperature: Number,
+    humidity: Number,
+    light: Number,
+    time: String
+});
+
+const Sensor = mongoose.model("Sensor", SensorSchema);
+
+// ===== ROUTES =====
+app.get("/", (req, res) => {
+    res.send("IoT Server + MongoDB Running");
+});
+
+// ESP32 gửi data
+app.post("/data", async (req, res) => {
+    const data = new Sensor({
         temperature: req.body.temperature,
         humidity: req.body.humidity,
         light: req.body.light,
         time: new Date().toISOString()
-    };
-
-    sensorData.push(data);
-
-    console.log("Received:", data);
-
-    res.json({
-        success: true,
-        message: "Data received"
     });
+
+    await data.save();
+
+    res.json({ success: true });
 });
 
-// lấy toàn bộ dữ liệu
-app.get("/api/data", (req, res) => {
-    res.json(sensorData);
+// lấy tất cả data
+app.get("/api/data", async (req, res) => {
+    const data = await Sensor.find();
+    res.json(data);
 });
 
-// IMPORTANT FOR RAILWAY
+// lấy mới nhất
+app.get("/data/latest", async (req, res) => {
+    const data = await Sensor.findOne().sort({ _id: -1 });
+    res.json(data || {});
+});
+
+// ===== PORT RAILWAY =====
 const PORT = process.env.PORT;
 
-// chạy server
 app.listen(PORT, "0.0.0.0", () => {
     console.log("Running on " + PORT);
 });
