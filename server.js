@@ -1,39 +1,52 @@
 ﻿const express = require("express");
-const path = require("path");
+const bodyParser = require("body-parser");
+
 const app = express();
 
-const PORT = process.env.PORT || 3000;
+// middleware
+app.use(bodyParser.json());
 
-// lưu dữ liệu tạm (không cần database)
-let logs = [];
+// lưu dữ liệu cảm biến
+let sensorData = [];
 
-app.get("/update", (req, res) => {
+// test server
+app.get("/", (req, res) => {
+    res.send("IoT Server Running");
+});
+
+// ESP32 gửi dữ liệu lên đây
+app.post("/data", (req, res) => {
     const data = {
-        device: req.query.device || "ESP32",
-        temp: req.query.temp || 0,
-        humi: req.query.humi || 0,
-        light: req.query.light || 0,
-        time: new Date()
+        temperature: req.body.temperature,
+        humidity: req.body.humidity,
+        light: req.body.light,
+        time: new Date().toISOString()
     };
 
-    logs.unshift(data);
-    if (logs.length > 50) logs.pop();
+    sensorData.push(data);
 
-    res.send("OK");
+    console.log("Received:", data);
+
+    res.json({
+        success: true,
+        message: "Data received"
+    });
 });
 
-app.get("/data", (req, res) => {
-    res.json(logs[0] || {});
+// lấy toàn bộ dữ liệu
+app.get("/api/data", (req, res) => {
+    res.json(sensorData);
 });
 
-app.get("/logs", (req, res) => {
-    res.json(logs);
+// lấy data mới nhất
+app.get("/data/latest", (req, res) => {
+    res.json(sensorData[sensorData.length - 1] || {});
 });
 
-// serve web
-app.use(express.static(__dirname));
+// PORT Railway bắt buộc dùng process.env.PORT
+const PORT = process.env.PORT || 3000;
 
 // chạy server
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("Server running...");
+    console.log("Server running on port " + PORT);
 });
