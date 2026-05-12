@@ -1,130 +1,82 @@
 ﻿<!DOCTYPE html>
 <html>
 <head>
-    <title>IoT Platform</title>
+    <title>IoT Dashboard MongoDB</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <style>
         body {
             font-family: Arial;
-            background: #0f172a;
+            background: #111;
             color: white;
             text-align: center;
         }
 
-        .card {
-            background: #1e293b;
-            margin: 10px auto;
-            padding: 20px;
-            width: 300px;
+        canvas {
+            background: white;
             border-radius: 10px;
-        }
-
-        table {
-            width: 90%;
-            margin: auto;
-            margin-top: 20px;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 8px;
-            border: 1px solid #555;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>🌐 IoT Dashboard</h1>
+    <h2>IoT MongoDB Dashboard</h2>
 
-    <div class="card">
-        <h2 id="temp">Temp: --</h2>
-        <h2 id="humi">Humi: --</h2>
-        <h2 id="light">Light: --</h2>
-    </div>
+    <h3>🌡 Temp: <span id="t">--</span></h3>
+    <h3>💧 Humi: <span id="h">--</span></h3>
 
-    <canvas id="chart" width="400" height="200"></canvas>
-
-    <h2>Logs</h2>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Device</th>
-                <th>Temp</th>
-                <th>Humi</th>
-                <th>Light</th>
-                <th>Time</th>
-            </tr>
-        </thead>
-        <tbody id="logTable"></tbody>
-    </table>
+    <canvas id="chart"></canvas>
 
     <script>
-        const ctx = document.getElementById("chart").getContext("2d");
+        const socket = io("https://YOUR-RAILWAY.up.railway.app");
 
-        const chart = new Chart(ctx, {
+        const tEl = document.getElementById("t");
+        const hEl = document.getElementById("h");
+
+        const chart = new Chart(document.getElementById("chart"), {
             type: "line",
             data: {
                 labels: [],
                 datasets: [
                     { label: "Temp", data: [], borderColor: "red" },
-                    { label: "Humi", data: [], borderColor: "blue" },
-                    { label: "Light", data: [], borderColor: "yellow" }
+                    { label: "Humi", data: [], borderColor: "blue" }
                 ]
             }
         });
 
-        async function loadData() {
-            const res = await fetch("/data");
-            const d = await res.json();
+        // 📥 load lịch sử MongoDB
+        fetch("https://YOUR-RAILWAY.up.railway.app/history")
+            .then(res => res.json())
+            .then(data => {
+                data.forEach(d => {
+                    chart.data.labels.push(new Date(d.time).toLocaleTimeString());
+                    chart.data.datasets[0].data.push(d.temp);
+                    chart.data.datasets[1].data.push(d.humi);
+                });
+                chart.update();
+            });
 
-            if (!d) return;
-
-            document.getElementById("temp").innerText = "Temp: " + d.temp;
-            document.getElementById("humi").innerText = "Humi: " + d.humi;
-            document.getElementById("light").innerText = "Light: " + d.light;
+        // 🔴 realtime
+        socket.on("sensor", (data) => {
+            tEl.innerText = data.temp;
+            hEl.innerText = data.humi;
 
             const time = new Date().toLocaleTimeString();
 
             chart.data.labels.push(time);
-            chart.data.datasets[0].data.push(d.temp);
-            chart.data.datasets[1].data.push(d.humi);
-            chart.data.datasets[2].data.push(d.light);
+            chart.data.datasets[0].data.push(data.temp);
+            chart.data.datasets[1].data.push(data.humi);
 
             if (chart.data.labels.length > 10) {
                 chart.data.labels.shift();
-                chart.data.datasets.forEach(ds => ds.data.shift());
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
             }
 
             chart.update();
-        }
-
-        async function loadLogs() {
-            const res = await fetch("/logs");
-            const logs = await res.json();
-
-            const table = document.getElementById("logTable");
-            table.innerHTML = "";
-
-            logs.forEach(l => {
-                table.innerHTML += `
-          <tr>
-            <td>${l.device}</td>
-            <td>${l.temp}</td>
-            <td>${l.humi}</td>
-            <td>${l.light}</td>
-            <td>${new Date(l.time).toLocaleString()}</td>
-          </tr>
-        `;
-            });
-        }
-
-        setInterval(() => {
-            loadData();
-            loadLogs();
-        }, 2000);
+        });
     </script>
 
 </body>

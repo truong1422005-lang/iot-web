@@ -1,45 +1,39 @@
 ﻿const express = require("express");
-
+const path = require("path");
 const app = express();
 
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-let data = [];
+// lưu dữ liệu tạm (không cần database)
+let logs = [];
 
-// test web
-app.get("/", (req, res) => {
-    res.send("SERVER OK RUNNING");
-});
-
-// nhận data từ ESP32
-app.post("/data", (req, res) => {
-    const d = {
-        temperature: req.body.temperature,
-        humidity: req.body.humidity,
-        light: req.body.light,
+app.get("/update", (req, res) => {
+    const data = {
+        device: req.query.device || "ESP32",
+        temp: req.query.temp || 0,
+        humi: req.query.humi || 0,
+        light: req.query.light || 0,
         time: new Date()
     };
 
-    data.push(d);
+    logs.unshift(data);
+    if (logs.length > 50) logs.pop();
 
-    console.log("Received:", d);
-
-    res.json({ success: true });
+    res.send("OK");
 });
 
-// lấy tất cả data
-app.get("/api/data", (req, res) => {
-    res.json(data);
+app.get("/data", (req, res) => {
+    res.json(logs[0] || {});
 });
 
-// lấy data mới nhất
-app.get("/data/latest", (req, res) => {
-    res.json(data[data.length - 1] || {});
+app.get("/logs", (req, res) => {
+    res.json(logs);
 });
 
-// PORT Railway
-const PORT = process.env.PORT || 8080;
+// serve web
+app.use(express.static(__dirname));
 
+// chạy server
 app.listen(PORT, "0.0.0.0", () => {
-    console.log("Running on " + PORT);
+    console.log("Server running...");
 });
